@@ -3,7 +3,7 @@ import colorsys
 import math
 from graphical_components import Slider, NumberInput
 
-def draw_color_wheel(surface, center, radius):
+def draw_color_wheel(surface, center, radius, alpha):
     """
     Draws the color wheel on the given surface.
     """
@@ -34,7 +34,8 @@ def draw_color_wheel(surface, center, radius):
             surface.set_at((x, y), (
                 int(r_col * 255),
                 int(g_col * 255),
-                int(b_col * 255)
+                int(b_col * 255),
+                int(alpha)
             ))
 
 
@@ -48,6 +49,24 @@ def current_color(r, g, b, radius, cx, cy, screen):
     x = int(cx + r * math.cos(math.radians(angle)))
     y = int(cy + r * math.sin(math.radians(angle)))
     pygame.draw.circle(screen, (200, 200, 200), (x, y), 5, width=2)
+
+# def draw_value_slider(screen, x, y, width, height, r, g, b):
+#     """
+#     Draws a vertical slider showing the current value (brightness) for the selected color.
+#     """
+#     # Convert RGB -> HSV
+#     _, _, val = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+
+#     # Draw the gradient of the slider
+#     for i in range(height):
+#         v = 1 - i / height  # top = 1, bottom = 0
+#         r_col, g_col, b_col = colorsys.hsv_to_rgb(r/255.0, 0 if r==g==b else 1, v)
+#         pygame.draw.line(screen, (int(r_col*255), int(g_col*255), int(b_col*255)), (x, y+i), (x+width, y+i))
+
+#     # Draw cursor
+#     cursor_y = int(y + (1 - val) * height)
+#     pygame.draw.rect(screen, (255, 255, 255), (x-2, cursor_y-2, width+4, 4), 2)
+
 
 def change_rgb_with_click(radius, cx, cy):
     """
@@ -91,6 +110,10 @@ def text_blitting(screen, font):
     text_rect_a = text_a.get_rect(center=(604, 400))
     screen.blit(text_a, text_rect_a)
 
+    text_color = font.render('Color', True, (255, 255, 255))
+    text_rect_color = text_color.get_rect(center=(600, 500))
+    screen.blit(text_color, text_rect_color)
+
 def draw_graphical_components(components, screen):
     for component in components:
         component.draw(screen)
@@ -101,20 +124,23 @@ def main():
     screen = pygame.display.set_mode((800, 600))
     font = pygame.font.SysFont(None, 30)
     
-    radius, cx, cy = 250, 280, 300
-    # Pre-render color wheel 
-    color_wheel_surface = pygame.Surface((560, 560), pygame.SRCALPHA)
-    draw_color_wheel(color_wheel_surface, (cx, cy), radius)  
+    radius, cx, cy = 230, 250, 300
 
-    input_box_r = NumberInput(650, 85, 80, 30, (0,0,0), font)
-    input_box_g = NumberInput(650, 185, 80, 30, (0,0,0), font)
-    input_box_b = NumberInput(650, 285, 80, 30, (0,0,0), font)
-    slider = Slider(650, 395, 100, 10, 0, 255, 1, font, interval=1)
+    input_box_r = NumberInput(x=650, y=85, width=80, height=30, color=(0,0,0), font=font)
+    input_box_g = NumberInput(x=650, y=185, width=80, height=30, color=(0,0,0), font=font)
+    input_box_b = NumberInput(x=650, y=285, width=80, height=30, color=(0,0,0), font=font)
+    slider = Slider(x=650, y=395, width=100, height=10, min_val=0, max_val=255, initial_val=255, font=font, interval=1)
     components = [input_box_r, input_box_g, input_box_b, slider]
+    current_slider_value = 255
+    
+    # Pre-render color wheel
+    color_wheel_surface = pygame.Surface((560, 560), pygame.SRCALPHA)
+    draw_color_wheel(color_wheel_surface, (cx, cy), radius, current_slider_value)  
 
     pygame.display.set_caption("Color Wheel")
     running = True
     start_drag = False
+    
 
     while running:
         for event in pygame.event.get():
@@ -133,7 +159,7 @@ def main():
                     elif input_box_b.active:
                         input_box_b.active = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pos()[0] < 560:
                 start_drag = True
             if event.type == pygame.MOUSEBUTTONUP:
                 start_drag = False
@@ -144,8 +170,15 @@ def main():
             input_box_b.handle_event(event)
             slider.handle_event(event)
 
+            slider_value = slider.current_val
+            if slider_value != current_slider_value:
+                current_slider_value = slider_value
+
         screen.fill((0, 0, 0))
-        screen.blit(color_wheel_surface, (0, 0))
+
+        temp_surface = color_wheel_surface.copy()
+        temp_surface.set_alpha(current_slider_value)
+        screen.blit(temp_surface, (0, 0))
 
         if start_drag:
             r, g, b =change_rgb_with_click(radius, cx, cy)  
@@ -160,6 +193,26 @@ def main():
             current_color(int(input_box_r.text), int(input_box_g.text), int(input_box_b.text), 
                           radius, cx, cy, screen)
             
+            # We need to use a surface because pygame.draw.rect does not support alpha
+            pygame.draw.rect(screen, (255, 255, 255), (648, 483, 104, 34), width=2)
+            color_rect_surface = pygame.Surface((100, 30), pygame.SRCALPHA)
+            color_rect_surface.fill((
+                int(input_box_r.text),
+                int(input_box_g.text),
+                int(input_box_b.text),
+                current_slider_value
+            ))
+            screen.blit(color_rect_surface, (650, 485))
+
+            # draw_value_slider(screen, x=500, y=100, width=20, height=400, 
+            #       r=int(input_box_r.text), 
+            #       g=int(input_box_g.text), 
+            #       b=int(input_box_b.text))
+        else:
+            # Highlight color preview border if any input box is active
+            pygame.draw.rect(screen, (100, 100, 100), (648, 483, 104, 34), width=2)
+        
+
         text_blitting(screen, font)
         draw_graphical_components(components, screen)
         pygame.display.flip()

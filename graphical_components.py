@@ -75,7 +75,7 @@ class Slider:
     
 
 class NumberInput:
-    def __init__(self, x, y, width, height, color, font, initial_text="0"):
+    def __init__(self, x, y, width, height, color, font, initial_text="255"):
         self.rect = pygame.Rect(x, y, width, height)
         self.color = color
         self.font = font
