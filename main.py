@@ -50,38 +50,43 @@ def current_color(r, g, b, radius, cx, cy, screen):
     y = int(cy + r * math.sin(math.radians(angle)))
     pygame.draw.circle(screen, (200, 200, 200), (x, y), 5, width=2)
 
-def draw_value_slider(screen, x, y, width, height, r, g, b):
+def draw_value_slider(screen, x, y, width, height, current_hsv):
     """
-    Disegna lo slider verticale della Value (luminosità) per il colore dato.
-    Restituisce la lista dei colori per ogni posizione verticale.
+    Draws the value slider, starts from the hsv value of the current 
+    RGB triplet and computes a slider changing the value component.
+    The value component ranges from 0 to 1.
     """
-    hue, sat, val = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
-
-    rgb_values = []
+    hue, sat, val = current_hsv
+    
     for i in range(height):
-        v = 1 - i / height  # dall'alto (1.0) al basso (0.0)
+        v = 1 - i / height
         r_col, g_col, b_col = colorsys.hsv_to_rgb(hue, sat, v)
-        r_col, g_col, b_col = int(r_col*255), int(g_col*255), int(b_col*255)
-        pygame.draw.line(screen, (r_col, g_col, b_col), (x, y+i), (x+width, y+i))
-        rgb_values.append((r_col, g_col, b_col))
-
-    # cursore basato sul "val" attuale
+        pygame.draw.line(
+            screen, 
+            (int(r_col*255), int(g_col*255), int(b_col*255)), 
+            (x, y+i), 
+            (x+width, y+i)
+        )
+    
+    # draw cursor value based on current value
     cursor_y = int(y + (1 - val) * height)
     pygame.draw.rect(screen, (255, 255, 255), (x-2, cursor_y-2, width+4, 4), 2)
 
-    return rgb_values
 
-def handle_value_slider_click(mouse_pos, y, height, rgb_values):
+def handle_value_slider_drag(mouse_pos, y, height, current_hsv):
     """
-    Returns new RGB values based on mouse click/drag on the vertical slider.
+    Handles the value of the slider, the lower the v value, the higher the error,
+    for this reason it stops at 0.05 minimizing as best as it can the errors.
+    Also value under 0.05 are practically pitch black, so just use (0,0,0).
     """
     _, my = mouse_pos
+    v = (y - my) / height
+    v = max(0.05, min(1.0, v))  
+    current_hsv[2] = v
 
-    # Compute value from y
-    val = 1 - ((y - my) / height)  # top = 1, bottom = 0
-    val = int(val*height)
-    r_new, g_new, b_new = rgb_values[val]
-    return r_new, g_new, b_new
+    # return rgb for input boxes
+    r, g, b = colorsys.hsv_to_rgb(*current_hsv)
+    return int(r*255), int(g*255), int(b*255)
 
 
 def change_rgb_with_click(radius, cx, cy):
@@ -107,9 +112,12 @@ def change_rgb_with_click(radius, cx, cy):
     g_col = int(g_col * 255)    
     b_col = int(b_col * 255)
 
-    return r_col, g_col, b_col 
+    return r_col, g_col, b_col, hue, sat, val
 
 def text_blitting(screen, font):
+    """
+    Used to blit the text used.
+    """
     text_r = font.render('Red', True, (255, 0, 0))
     text_rect_r = text_r.get_rect(center=(595, 100))    
     screen.blit(text_r, text_rect_r)
@@ -131,6 +139,9 @@ def text_blitting(screen, font):
     screen.blit(text_color, text_rect_color)
 
 def draw_graphical_components(components, screen):
+    """
+    Draws the components.
+    """
     for component in components:
         component.draw(screen)
 
@@ -155,15 +166,17 @@ def main():
 
     pygame.display.set_caption("Color Wheel")
     running = True
-    start_drag = False
-    
-    rgb_values = []
+    start_drag_color_wheel = False
+    start_drag_vertical_slider = False
 
+    current_hsv = [0.0, 0.0, 1.0]
+    print(current_hsv)
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
+            # TAB KEY SHORTCUT
             if event.type == pygame.KEYDOWN:
                 # Switch active input box with TAB
                 if event.key == pygame.K_TAB:
@@ -176,23 +189,20 @@ def main():
                     elif input_box_b.active:
                         input_box_b.active = False
 
+            # INITIALIZE DRAG
             if event.type == pygame.MOUSEBUTTONDOWN:    
                 mx, my = pygame.mouse.get_pos()
                 if mx < 480:
-                    start_drag = True
+                    start_drag_color_wheel = True
                 if 500 <= mx <= 520 and 100 <= my < 500:
-                    r, g, b = handle_value_slider_click((mx, my), y=500, height=400, rgb_values=rgb_values)
-                    input_box_r.text = str(r)
-                    input_box_g.text = str(g)
-                    input_box_b.text = str(b)
-                    input_box_r.txt_surface = font.render(input_box_r.text, True, input_box_r.color)
-                    input_box_g.txt_surface = font.render(input_box_g.text, True, input_box_g.color)
-                    input_box_b.txt_surface = font.render(input_box_b.text, True, input_box_b.color)
+                    start_drag_vertical_slider = True
 
+            #STOP DRAG
             if event.type == pygame.MOUSEBUTTONUP:
-                start_drag = False
+                start_drag_color_wheel = False
+                start_drag_vertical_slider = False
                         
-            # components event handling
+            # COMPONENTS EVENT HANDLING
             input_box_r.handle_event(event)
             input_box_g.handle_event(event)
             input_box_b.handle_event(event)
@@ -208,8 +218,10 @@ def main():
         temp_surface.set_alpha(current_slider_value)
         screen.blit(temp_surface, (0, 0))
 
-        if start_drag:
-            r, g, b =change_rgb_with_click(radius, cx, cy)  
+        # DRAG LOGIC, COLOR WHEEL AND VALUE SLIDER
+        if start_drag_color_wheel:
+            r, g, b, hue, sat, val = change_rgb_with_click(radius, cx, cy)  
+            current_hsv = [hue, sat, val]
             input_box_r.text = str(r)
             input_box_g.text = str(g)
             input_box_b.text = str(b)
@@ -217,6 +229,17 @@ def main():
             input_box_g.txt_surface = font.render(input_box_g.text, True, input_box_g.color)
             input_box_b.txt_surface = font.render(input_box_b.text, True, input_box_b.color)
 
+        if start_drag_vertical_slider:
+            mx, my = pygame.mouse.get_pos()
+            r, g, b = handle_value_slider_drag((mx, my), y=500, height=400, current_hsv=current_hsv)
+            input_box_r.text = str(r)
+            input_box_g.text = str(g)
+            input_box_b.text = str(b)
+            input_box_r.txt_surface = font.render(input_box_r.text, True, input_box_r.color)
+            input_box_g.txt_surface = font.render(input_box_g.text, True, input_box_g.color)
+            input_box_b.txt_surface = font.render(input_box_b.text, True, input_box_b.color)
+
+        # UPDATES THE SURFACES
         if not input_box_r.active and not input_box_g.active and not input_box_b.active:
             current_color(int(input_box_r.text), int(input_box_g.text), int(input_box_b.text), 
                           radius, cx, cy, screen)
@@ -232,15 +255,12 @@ def main():
             ))
             screen.blit(color_rect_surface, (650, 485))
 
-            rgb_values = draw_value_slider(screen, x=500, y=100, width=20, height=400, 
-                  r=int(input_box_r.text), 
-                  g=int(input_box_g.text), 
-                  b=int(input_box_b.text))
+            draw_value_slider(screen, x=500, y=100, width=20, height=400, current_hsv=current_hsv)
         else:
             # Highlight color preview border if any input box is active
             pygame.draw.rect(screen, (100, 100, 100), (648, 483, 104, 34), width=2)
         
-
+        # OTHER SURFACE UPDATES
         text_blitting(screen, font)
         draw_graphical_components(components, screen)
         pygame.display.flip()

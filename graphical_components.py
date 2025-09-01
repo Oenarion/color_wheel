@@ -80,7 +80,7 @@ class NumberInput:
         self.color = color
         self.font = font
         self.text = initial_text
-        self.active = False  # se l'input è attivo per la scrittura
+        self.active = False  # boolean to check if we can write
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -113,6 +113,6 @@ class NumberInput:
         pygame.draw.rect(screen, (255, 255, 255), self.rect, width=2)
         # Render text
         txt_surface = self.font.render(self.text, True, (255, 255, 255))
-        # Centra il testo
+        # Center text
         text_rect = txt_surface.get_rect(center=self.rect.center)
         screen.blit(txt_surface, text_rect)
