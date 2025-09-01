@@ -168,6 +168,7 @@ def main():
     running = True
     start_drag_color_wheel = False
     start_drag_vertical_slider = False
+    modifying_rgb = False
 
     current_hsv = [0.0, 0.0, 1.0]
     print(current_hsv)
@@ -206,6 +207,8 @@ def main():
             input_box_r.handle_event(event)
             input_box_g.handle_event(event)
             input_box_b.handle_event(event)
+            if input_box_r.active or input_box_b.active or input_box_g.active:
+                modifying_rgb = True
             slider.handle_event(event)
 
             slider_value = slider.current_val
@@ -241,6 +244,10 @@ def main():
 
         # UPDATES THE SURFACES
         if not input_box_r.active and not input_box_g.active and not input_box_b.active:
+            if modifying_rgb:
+                modifying_rgb = False
+                h, s, v = colorsys.rgb_to_hsv(int(input_box_r.text)/255.0, int(input_box_g.text)/255.0, int(input_box_b.text)/255.0)
+                current_hsv = [h, s, v]
             current_color(int(input_box_r.text), int(input_box_g.text), int(input_box_b.text), 
                           radius, cx, cy, screen)
             
@@ -254,13 +261,12 @@ def main():
                 current_slider_value
             ))
             screen.blit(color_rect_surface, (650, 485))
-
-            draw_value_slider(screen, x=500, y=100, width=20, height=400, current_hsv=current_hsv)
         else:
             # Highlight color preview border if any input box is active
             pygame.draw.rect(screen, (100, 100, 100), (648, 483, 104, 34), width=2)
         
         # OTHER SURFACE UPDATES
+        draw_value_slider(screen, x=500, y=100, width=20, height=400, current_hsv=current_hsv)
         text_blitting(screen, font)
         draw_graphical_components(components, screen)
         pygame.display.flip()
