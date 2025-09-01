@@ -50,22 +50,38 @@ def current_color(r, g, b, radius, cx, cy, screen):
     y = int(cy + r * math.sin(math.radians(angle)))
     pygame.draw.circle(screen, (200, 200, 200), (x, y), 5, width=2)
 
-# def draw_value_slider(screen, x, y, width, height, r, g, b):
-#     """
-#     Draws a vertical slider showing the current value (brightness) for the selected color.
-#     """
-#     # Convert RGB -> HSV
-#     _, _, val = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
+def draw_value_slider(screen, x, y, width, height, r, g, b):
+    """
+    Disegna lo slider verticale della Value (luminosità) per il colore dato.
+    Restituisce la lista dei colori per ogni posizione verticale.
+    """
+    hue, sat, val = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
 
-#     # Draw the gradient of the slider
-#     for i in range(height):
-#         v = 1 - i / height  # top = 1, bottom = 0
-#         r_col, g_col, b_col = colorsys.hsv_to_rgb(r/255.0, 0 if r==g==b else 1, v)
-#         pygame.draw.line(screen, (int(r_col*255), int(g_col*255), int(b_col*255)), (x, y+i), (x+width, y+i))
+    rgb_values = []
+    for i in range(height):
+        v = 1 - i / height  # dall'alto (1.0) al basso (0.0)
+        r_col, g_col, b_col = colorsys.hsv_to_rgb(hue, sat, v)
+        r_col, g_col, b_col = int(r_col*255), int(g_col*255), int(b_col*255)
+        pygame.draw.line(screen, (r_col, g_col, b_col), (x, y+i), (x+width, y+i))
+        rgb_values.append((r_col, g_col, b_col))
 
-#     # Draw cursor
-#     cursor_y = int(y + (1 - val) * height)
-#     pygame.draw.rect(screen, (255, 255, 255), (x-2, cursor_y-2, width+4, 4), 2)
+    # cursore basato sul "val" attuale
+    cursor_y = int(y + (1 - val) * height)
+    pygame.draw.rect(screen, (255, 255, 255), (x-2, cursor_y-2, width+4, 4), 2)
+
+    return rgb_values
+
+def handle_value_slider_click(mouse_pos, y, height, rgb_values):
+    """
+    Returns new RGB values based on mouse click/drag on the vertical slider.
+    """
+    _, my = mouse_pos
+
+    # Compute value from y
+    val = 1 - ((y - my) / height)  # top = 1, bottom = 0
+    val = int(val*height)
+    r_new, g_new, b_new = rgb_values[val]
+    return r_new, g_new, b_new
 
 
 def change_rgb_with_click(radius, cx, cy):
@@ -141,6 +157,7 @@ def main():
     running = True
     start_drag = False
     
+    rgb_values = []
 
     while running:
         for event in pygame.event.get():
@@ -159,8 +176,19 @@ def main():
                     elif input_box_b.active:
                         input_box_b.active = False
 
-            if event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pos()[0] < 560:
-                start_drag = True
+            if event.type == pygame.MOUSEBUTTONDOWN:    
+                mx, my = pygame.mouse.get_pos()
+                if mx < 480:
+                    start_drag = True
+                if 500 <= mx <= 520 and 100 <= my < 500:
+                    r, g, b = handle_value_slider_click((mx, my), y=500, height=400, rgb_values=rgb_values)
+                    input_box_r.text = str(r)
+                    input_box_g.text = str(g)
+                    input_box_b.text = str(b)
+                    input_box_r.txt_surface = font.render(input_box_r.text, True, input_box_r.color)
+                    input_box_g.txt_surface = font.render(input_box_g.text, True, input_box_g.color)
+                    input_box_b.txt_surface = font.render(input_box_b.text, True, input_box_b.color)
+
             if event.type == pygame.MOUSEBUTTONUP:
                 start_drag = False
                         
@@ -174,7 +202,7 @@ def main():
             if slider_value != current_slider_value:
                 current_slider_value = slider_value
 
-        screen.fill((0, 0, 0))
+        screen.fill((20, 20, 20))
 
         temp_surface = color_wheel_surface.copy()
         temp_surface.set_alpha(current_slider_value)
@@ -204,10 +232,10 @@ def main():
             ))
             screen.blit(color_rect_surface, (650, 485))
 
-            # draw_value_slider(screen, x=500, y=100, width=20, height=400, 
-            #       r=int(input_box_r.text), 
-            #       g=int(input_box_g.text), 
-            #       b=int(input_box_b.text))
+            rgb_values = draw_value_slider(screen, x=500, y=100, width=20, height=400, 
+                  r=int(input_box_r.text), 
+                  g=int(input_box_g.text), 
+                  b=int(input_box_b.text))
         else:
             # Highlight color preview border if any input box is active
             pygame.draw.rect(screen, (100, 100, 100), (648, 483, 104, 34), width=2)
