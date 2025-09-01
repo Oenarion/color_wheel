@@ -4,5 +4,5 @@ A simple color wheel implementation in pygame, cause I was tired to search for c
 The power of colors in the palm of my keyboard. - Dr Otto Octavius
 
 
-![Color wheel](gifs/color_wheel.gif)
-> Visualizatio of the color wheel.
+![Color wheel](gif/color_wheel.gif)
+> Visualization of the color wheel.
